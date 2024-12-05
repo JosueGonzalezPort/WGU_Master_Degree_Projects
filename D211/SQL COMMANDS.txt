@@ -1,0 +1,86 @@
+-- Step 1: Replace NULL values in the 'Children' column with 0
+UPDATE customer
+SET Children = 0
+WHERE Children IS NULL;
+
+-- Step 2: Replace NULL values in the 'Age' column with the median age
+WITH MedianAge AS (
+    SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY Age) AS median_age
+    FROM customer
+    WHERE Age IS NOT NULL
+)
+UPDATE customer
+SET Age = (SELECT median_age FROM MedianAge)
+WHERE Age IS NULL;
+
+WITH MedianIncome AS (
+    SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY Income) AS median_income
+    FROM customer
+    WHERE Income IS NOT NULL
+)
+UPDATE customer
+SET Income = (SELECT median_income FROM MedianIncome)
+WHERE Income IS NULL;
+
+-- Step 4: Replace NULL values in 'Marital' and 'Gender' with 'Unknown'
+UPDATE customer
+SET Marital = 'Unknown'
+WHERE Marital IS NULL;
+
+UPDATE customer
+SET Gender = 'Unknown'
+WHERE Gender IS NULL;
+
+-- Step 5: Replace NULL values in 'Churn' with 'Unknown'
+UPDATE customer
+SET Churn = 'Unknown'
+WHERE Churn IS NULL;
+
+-- Step 6: Replace NULL values in numeric fields like 'Outage_sec_perweek' and 'Yearly_equip_failure' with 0
+UPDATE customer
+SET outage_sec_week = 0
+WHERE outage_sec_week IS NULL;
+
+UPDATE customer
+SET tearly_equip_faiure = 0
+WHERE tearly_equip_faiure IS NULL;
+
+-- Step 7: Replace NULL in 'Techie' with 'Unknown'
+UPDATE customer
+SET techie = 'Unknown'
+WHERE techie IS NULL;
+
+-- Step 1: Modify the table to accept state codes instead of abbreviations
+CREATE TABLE state_median_income (
+    state_code INT,              -- Use state codes instead of abbreviations
+    state_full VARCHAR(255),     -- Full state name
+    median_income FLOAT          -- Median income
+);
+
+-- Step 2: Import CSV with state codes instead of abbreviations
+COPY state_median_income(median_income, state_full, state_code)
+FROM 'C:/Users/Public/Downloads/state_median_income.csv'
+DELIMITER ',' CSV HEADER;
+
+-- Step 3: Update location table with full state names using state_code
+UPDATE location
+SET state_full = state_median_income.state_full
+FROM state_median_income
+WHERE location.state = state_median_income.state_code;
+
+-- Step 4: Verify the update
+SELECT state, state_full, * FROM location LIMIT 10;
+
+SELECT 
+    location.city, 
+    location.county, 
+    location.state AS state_from_location, 
+    state_median_income.state_full AS state_full_from_income, 
+    state_median_income.median_income, 
+    location.zip 
+FROM 
+    public.location 
+JOIN 
+    public.state_median_income 
+ON 
+    location.state = state_median_income.state_full;
